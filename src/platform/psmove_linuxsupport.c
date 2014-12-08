@@ -334,6 +334,10 @@ void linux_info_init(struct linux_info_t *info)
                     // going to switch to systemd
                     info->init_type = LINUX_UPSTART;
             }
+            else if (!strcmp(value, "Arch Linux")) {
+                    info->init_type = LINUX_SYSTEMD;
+            }
+
             break;
         }
 
