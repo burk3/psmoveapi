@@ -458,39 +458,57 @@ if(SWIG_FOUND)
 
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bindings/swig)
 
-    if(PSMOVE_BUILD_PYTHON_BINDINGS)
-        find_package(PythonLibs QUIET)
-        if(PYTHONLIBS_FOUND)
-            unset(CMAKE_SWIG_FLAGS)
-            include_directories(${PYTHON_INCLUDE_PATH})
-            swig_add_module(psmove python bindings/swig/psmove.i)
-            swig_link_libraries(psmove psmoveapi_static ${PYTHON_LIBRARIES})
-            if (PSMOVE_BUILD_TRACKER)
-                swig_link_libraries(psmove psmoveapi_tracker_static)
-            endif()
-            set_target_properties(_psmove PROPERTIES
-                COMPILE_FLAGS -DUSING_STATIC_LIBRARY)
-            set(INFO_BUILD_PYTHON_BINDINGS "Yes")
-        else()
-            set(INFO_BUILD_PYTHON_BINDINGS "No (libpython not found)")
-        endif()
-    else()
-        set(INFO_BUILD_PYTHON_BINDINGS "No (disabled)")
-    endif()
+		if(PSMOVE_BUILD_PYTHON_BINDINGS)
+			find_package(PythonLibs QUIET)
+			find_package(PythonInterp QUIET)
+			if(PYTHONLIBS_FOUND AND PYTHONINTERP_FOUND)
+				unset(CMAKE_SWIG_FLAGS)
+				include_directories(${PYTHON_INCLUDE_PATH})
+				swig_add_module(psmove python bindings/swig/psmove.i)
+				swig_link_libraries(psmove psmoveapi_static ${PYTHON_LIBRARIES})
+				if (PSMOVE_BUILD_TRACKER)
+					swig_link_libraries(psmove psmoveapi_tracker_static)
+				endif()
+				set_target_properties(_psmove PROPERTIES
+					COMPILE_FLAGS -DUSING_STATIC_LIBRARY)
+				set_target_properties ( ${SWIG_MODULE_psmove_REAL_NAME} PROPERTIES NO_SONAME ON )
 
-    if(PSMOVE_BUILD_JAVA_BINDINGS)
-        find_package(JNI QUIET)
-        if(JNI_FOUND)
-            set(PSMOVEAPI_JAVA_PKG "io.thp.psmove")
-            string(REPLACE "." "/" PSMOVEAPI_JAVA_PKG_DIR ${PSMOVEAPI_JAVA_PKG})
+				execute_process ( COMMAND ${PYTHON_EXECUTABLE} -c "from distutils import sysconfig; print( sysconfig.get_python_lib( plat_specific=True, prefix='${CMAKE_INSTALL_PREFIX}' ) )"
+					OUTPUT_VARIABLE _ABS_PYTHON_MODULE_PATH
+					OUTPUT_STRIP_TRAILING_WHITESPACE )
+				message( ${PYTHON_EXECUTABLE} a )
 
-            set(CMAKE_SWIG_FLAGS -package ${PSMOVEAPI_JAVA_PKG})
-            include_directories(${JNI_INCLUDE_DIRS})
-            swig_add_module(psmove_java java bindings/swig/psmove.i)
-            swig_link_libraries(psmove_java psmoveapi_static ${JNI_LIBRARIES})
-            if (PSMOVE_BUILD_TRACKER)
-                swig_link_libraries(psmove_java psmoveapi_tracker_static)
-            endif()
+				get_filename_component ( _ABS_PYTHON_MODULE_PATH ${_ABS_PYTHON_MODULE_PATH} ABSOLUTE )
+				file ( RELATIVE_PATH _REL_PYTHON_MODULE_PATH ${CMAKE_INSTALL_PREFIX} ${_ABS_PYTHON_MODULE_PATH} )
+
+				set ( PYTHON_MODULE_PATH
+					${_REL_PYTHON_MODULE_PATH}
+					)
+
+				INSTALL ( FILES ${CMAKE_CURRENT_BINARY_DIR}/_psmove.so DESTINATION ${PYTHON_MODULE_PATH} )
+				INSTALL ( FILES ${CMAKE_CURRENT_BINARY_DIR}/psmove.py DESTINATION ${PYTHON_MODULE_PATH} )
+
+				set(INFO_BUILD_PYTHON_BINDINGS "Yes")
+			else()
+				set(INFO_BUILD_PYTHON_BINDINGS "No (libpython not found)")
+			endif()
+		else()
+			set(INFO_BUILD_PYTHON_BINDINGS "No (disabled)")
+		endif()
+
+		if(PSMOVE_BUILD_JAVA_BINDINGS)
+			find_package(JNI QUIET)
+			if(JNI_FOUND)
+				set(PSMOVEAPI_JAVA_PKG "io.thp.psmove")
+				string(REPLACE "." "/" PSMOVEAPI_JAVA_PKG_DIR ${PSMOVEAPI_JAVA_PKG})
+
+				set(CMAKE_SWIG_FLAGS -package ${PSMOVEAPI_JAVA_PKG})
+				include_directories(${JNI_INCLUDE_DIRS})
+				swig_add_module(psmove_java java bindings/swig/psmove.i)
+				swig_link_libraries(psmove_java psmoveapi_static ${JNI_LIBRARIES})
+				if (PSMOVE_BUILD_TRACKER)
+					swig_link_libraries(psmove_java psmoveapi_tracker_static)
+				endif()
             set_target_properties(psmove_java PROPERTIES
                 COMPILE_FLAGS -DUSING_STATIC_LIBRARY)
             set(INFO_BUILD_JAVA_BINDINGS "Yes")
@@ -610,6 +628,9 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/contrib/psmoveapi.pc.in
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/psmove_config.h.in
     ${CMAKE_CURRENT_SOURCE_DIR}/include/psmove_config.h
     @ONLY)
+
+
+
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/psmoveapi.pc
     DESTINATION ${PSMOVEAPI_LIB_DEST}/pkgconfig)
